@@ -12,6 +12,7 @@ linters:
     - durationcheck
     - errcheck
     - errname
+    - exhaustruct
     - exportloopref
     - forcetypeassert
     - goconst
