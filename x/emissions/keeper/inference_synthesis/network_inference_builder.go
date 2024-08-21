@@ -17,14 +17,12 @@ func GetCombinedInference(logger log.Logger, inPalette SynthPalette) (
 
 	weights, err = palette.CalcWeightsGivenWorkers()
 	if err != nil {
-		errorsmod.Wrap(err, "Error calculating weights for combined inference")
-		return RegretInformedWeights{}, InferenceValue{}, err
+		return RegretInformedWeights{}, InferenceValue{}, errorsmod.Wrap(err, "Error calculating weights for combined inference")
 	}
 
 	combinedInference, err = palette.CalcWeightedInference(weights)
 	if err != nil {
-		errorsmod.Wrap(err, "Error calculating combined inference")
-		return RegretInformedWeights{}, InferenceValue{}, err
+		return RegretInformedWeights{}, InferenceValue{}, errorsmod.Wrap(err, "Error calculating combined inference")
 	}
 
 	logger.Debug(fmt.Sprintf("Combined inference calculated for topic %v is %v", inPalette.TopicId, combinedInference))
@@ -248,7 +246,7 @@ func GetOneOutForecasterInferences(
 	oneOutForecasterInferences []*emissions.WithheldWorkerAttributedValue, err error) {
 	logger.Debug(fmt.Sprintf("Calculating one-out forecaster inferences for topic %v with %v forecasters", palette.TopicId, len(palette.Forecasters)))
 	// Calculate the one-out forecast-implied inferences per forecaster
-	oneOutImpliedInferences := make([]*emissions.WithheldWorkerAttributedValue, 0)
+	oneOutForecasterInferences = make([]*emissions.WithheldWorkerAttributedValue, 0)
 	// If there is only one forecaster, there's no need to calculate one-out inferences
 	if len(palette.Forecasters) > 1 {
 		for _, worker := range palette.Forecasters {
@@ -256,7 +254,7 @@ func GetOneOutForecasterInferences(
 			if err != nil {
 				return []*emissions.WithheldWorkerAttributedValue{}, errorsmod.Wrapf(err, "Error calculating one-out forecaster inferences")
 			}
-			oneOutImpliedInferences = append(oneOutImpliedInferences, &emissions.WithheldWorkerAttributedValue{
+			oneOutForecasterInferences = append(oneOutForecasterInferences, &emissions.WithheldWorkerAttributedValue{
 				Worker: worker,
 				Value:  oneOutInference,
 			})

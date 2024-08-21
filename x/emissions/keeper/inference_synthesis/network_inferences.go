@@ -136,6 +136,10 @@ func GetNetworkInferences(
 			}
 			var weights RegretInformedWeights
 			networkInferences, weights, err = CalcNetworkInferences(Logger(ctx), synthPalette)
+			if err != nil {
+				Logger(ctx).Warn(fmt.Sprintf("Error calculating network inferences: %s", err.Error()))
+				return networkInferences, nil, infererWeights, forecasterWeights, inferenceBlockHeight, lossBlockHeight, nil
+			}
 			forecastImpliedInferencesByWorker = synthPalette.ForecastImpliedInferenceByWorker
 			infererWeights = weights.inferers
 			forecasterWeights = weights.forecasters
