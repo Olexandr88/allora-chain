@@ -31,7 +31,7 @@ func V1ToV2(ctx sdk.Context, mintKeeper keeper.Keeper) error {
 // as oppposed to preseed.
 func migrateParameters(store storetypes.KVStore, cdc codec.BinaryCodec) error {
 	// Read the old parameters
-	oldParams := types.Params{}
+	oldParams := types.Params{} //nolint:exhaustruct
 	oldParamsBytes := store.Get(types.ParamsKey)
 	if oldParamsBytes == nil {
 		return errors.Wrapf(types.ErrNotFound, "old parameters not found")

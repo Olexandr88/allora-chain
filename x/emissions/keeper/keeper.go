@@ -79,7 +79,8 @@ type Keeper struct {
 	previousInferenceRewardFraction collections.Map[collections.Pair[TopicId, ActorId], alloraMath.Dec]
 	// map of (topic, worker) -> previous reward for forecast (used for EMA)
 	previousForecastRewardFraction collections.Map[collections.Pair[TopicId, ActorId], alloraMath.Dec]
-	previousForecasterScoreRatio   collections.Map[TopicId, alloraMath.Dec]
+	// map of (topic id -> previous score ratio)
+	previousForecasterScoreRatio collections.Map[TopicId, alloraMath.Dec]
 
 	/// STAKING
 
@@ -196,6 +197,7 @@ func NewKeeper(
 ) Keeper {
 	sb := collections.NewSchemaBuilder(storeService)
 	k := Keeper{
+		schema:                                   collections.Schema{},
 		cdc:                                      cdc,
 		storeService:                             storeService,
 		addressCodec:                             addressCodec,
@@ -284,7 +286,7 @@ func (k *Keeper) GetBinaryCodec() codec.BinaryCodec {
 func (k *Keeper) GetWorkerWindowTopicIds(ctx sdk.Context, height BlockHeight) types.TopicIds {
 	topicIds, err := k.openWorkerWindows.Get(ctx, height)
 	if err != nil {
-		return types.TopicIds{}
+		return types.TopicIds{TopicIds: []TopicId{}}
 	}
 	return topicIds
 }
@@ -295,7 +297,7 @@ func (k *Keeper) AddWorkerWindowTopicId(ctx sdk.Context, height BlockHeight, top
 	var topicIds types.TopicIds
 	topicIds, err := k.openWorkerWindows.Get(ctx, height)
 	if err != nil {
-		topicIds = types.TopicIds{}
+		topicIds = types.TopicIds{TopicIds: []TopicId{}}
 	}
 	topicIds.TopicIds = append(topicIds.TopicIds, topicId)
 	err = k.openWorkerWindows.Set(ctx, height, topicIds)
@@ -309,7 +311,7 @@ func (k *Keeper) DeleteWorkerWindowBlockheight(ctx sdk.Context, height BlockHeig
 // Attempts to fulfill an unfulfilled nonce.
 // If the nonce is present, then it is removed from the unfulfilled nonces and this function returns true.
 // If the nonce is not present, then the function returns false.
-func (k *Keeper) FulfillWorkerNonce(ctx context.Context, topicId TopicId, nonce *types.Nonce) (bool, error) {
+func (k *Keeper) FulfillWorkerNonce(ctx context.Context, topicId TopicId, nonce *types.Nonce) (isPresent bool, err error) {
 	unfulfilledNonces, err := k.GetUnfulfilledWorkerNonces(ctx, topicId)
 	if err != nil {
 		return false, err
@@ -335,7 +337,7 @@ func (k *Keeper) FulfillWorkerNonce(ctx context.Context, topicId TopicId, nonce 
 // Attempts to fulfill an unfulfilled nonce.
 // If the nonce is present, then it is removed from the unfulfilled nonces and this function returns true.
 // If the nonce is not present, then the function returns false.
-func (k *Keeper) FulfillReputerNonce(ctx context.Context, topicId TopicId, nonce *types.Nonce) (bool, error) {
+func (k *Keeper) FulfillReputerNonce(ctx context.Context, topicId TopicId, nonce *types.Nonce) (isPresent bool, err error) {
 	unfulfilledNonces, err := k.GetUnfulfilledReputerNonces(ctx, topicId)
 	if err != nil {
 		return false, err
@@ -359,7 +361,7 @@ func (k *Keeper) FulfillReputerNonce(ctx context.Context, topicId TopicId, nonce
 }
 
 // True if nonce is unfulfilled, false otherwise.
-func (k *Keeper) IsWorkerNonceUnfulfilled(ctx context.Context, topicId TopicId, nonce *types.Nonce) (bool, error) {
+func (k *Keeper) IsWorkerNonceUnfulfilled(ctx context.Context, topicId TopicId, nonce *types.Nonce) (isUnfulfilled bool, err error) {
 	// Get the latest unfulfilled nonces
 	unfulfilledNonces, err := k.GetUnfulfilledWorkerNonces(ctx, topicId)
 	if err != nil {
@@ -380,7 +382,7 @@ func (k *Keeper) IsWorkerNonceUnfulfilled(ctx context.Context, topicId TopicId, 
 }
 
 // True if nonce is unfulfilled, false otherwise.
-func (k *Keeper) IsReputerNonceUnfulfilled(ctx context.Context, topicId TopicId, nonce *types.Nonce) (bool, error) {
+func (k *Keeper) IsReputerNonceUnfulfilled(ctx context.Context, topicId TopicId, nonce *types.Nonce) (isUnfulfilled bool, err error) {
 	// Get the latest unfulfilled nonces
 	unfulfilledNonces, err := k.GetUnfulfilledReputerNonces(ctx, topicId)
 	if err != nil {
@@ -476,9 +478,9 @@ func (k *Keeper) GetUnfulfilledWorkerNonces(ctx context.Context, topicId TopicId
 	nonces, err := k.unfulfilledWorkerNonces.Get(ctx, topicId)
 	if err != nil {
 		if errors.Is(err, collections.ErrNotFound) {
-			return types.Nonces{}, nil
+			return types.Nonces{Nonces: []*types.Nonce{}}, nil
 		}
-		return types.Nonces{}, err
+		return types.Nonces{Nonces: []*types.Nonce{}}, err
 	}
 	return nonces, nil
 }
@@ -487,19 +489,19 @@ func (k *Keeper) GetUnfulfilledReputerNonces(ctx context.Context, topicId TopicI
 	nonces, err := k.unfulfilledReputerNonces.Get(ctx, topicId)
 	if err != nil {
 		if errors.Is(err, collections.ErrNotFound) {
-			return types.ReputerRequestNonces{}, nil
+			return types.ReputerRequestNonces{Nonces: []*types.ReputerRequestNonce{}}, nil
 		}
-		return types.ReputerRequestNonces{}, err
+		return types.ReputerRequestNonces{Nonces: []*types.ReputerRequestNonce{}}, err
 	}
 	return nonces, nil
 }
 
 func (k *Keeper) DeleteUnfulfilledWorkerNonces(ctx context.Context, topicId TopicId) error {
-	return k.unfulfilledWorkerNonces.Set(ctx, topicId, types.Nonces{})
+	return k.unfulfilledWorkerNonces.Set(ctx, topicId, types.Nonces{Nonces: []*types.Nonce{}})
 }
 
 func (k *Keeper) DeleteUnfulfilledReputerNonces(ctx context.Context, topicId TopicId) error {
-	return k.unfulfilledReputerNonces.Set(ctx, topicId, types.ReputerRequestNonces{})
+	return k.unfulfilledReputerNonces.Set(ctx, topicId, types.ReputerRequestNonces{Nonces: []*types.ReputerRequestNonce{}})
 }
 
 /// REGRETS
@@ -511,9 +513,11 @@ func (k *Keeper) SetInfererNetworkRegret(ctx context.Context, topicId TopicId, w
 
 // Returns the regret of a inferer from comparing loss of inferer relative to loss of other inferers
 // Returns (0, true) if no regret is found
-func (k *Keeper) GetInfererNetworkRegret(ctx context.Context, topicId TopicId, worker ActorId) (types.TimestampedValue, bool, error) {
+func (k *Keeper) GetInfererNetworkRegret(
+	ctx context.Context, topicId TopicId, worker ActorId) (
+	regret types.TimestampedValue, noPrior bool, err error) {
 	key := collections.Join(topicId, worker)
-	regret, err := k.latestInfererNetworkRegrets.Get(ctx, key)
+	regret, err = k.latestInfererNetworkRegrets.Get(ctx, key)
 	if err != nil {
 		if errors.Is(err, collections.ErrNotFound) {
 			topic, err := k.GetTopic(ctx, topicId)
@@ -525,21 +529,24 @@ func (k *Keeper) GetInfererNetworkRegret(ctx context.Context, topicId TopicId, w
 				Value:       topic.InitialRegret,
 			}, true, nil
 		}
-		return types.TimestampedValue{}, false, err
+		return types.TimestampedValue{BlockHeight: 0, Value: alloraMath.ZeroDec()}, false, err
 	}
 	return regret, false, nil
 }
 
-func (k *Keeper) SetForecasterNetworkRegret(ctx context.Context, topicId TopicId, worker ActorId, regret types.TimestampedValue) error {
+func (k *Keeper) SetForecasterNetworkRegret(
+	ctx context.Context, topicId TopicId, worker ActorId, regret types.TimestampedValue) error {
 	key := collections.Join(topicId, worker)
 	return k.latestForecasterNetworkRegrets.Set(ctx, key, regret)
 }
 
 // Returns the regret of a forecaster from comparing loss of forecaster relative to loss of other forecasters
 // Returns (0, true) if no regret is found
-func (k *Keeper) GetForecasterNetworkRegret(ctx context.Context, topicId TopicId, worker ActorId) (types.TimestampedValue, bool, error) {
+func (k *Keeper) GetForecasterNetworkRegret(
+	ctx context.Context, topicId TopicId, worker ActorId) (
+	regret types.TimestampedValue, noPrior bool, err error) {
 	key := collections.Join(topicId, worker)
-	regret, err := k.latestForecasterNetworkRegrets.Get(ctx, key)
+	regret, err = k.latestForecasterNetworkRegrets.Get(ctx, key)
 	if err != nil {
 		if errors.Is(err, collections.ErrNotFound) {
 			topic, err := k.GetTopic(ctx, topicId)
@@ -556,16 +563,19 @@ func (k *Keeper) GetForecasterNetworkRegret(ctx context.Context, topicId TopicId
 	return regret, false, nil
 }
 
-func (k *Keeper) SetOneInForecasterNetworkRegret(ctx context.Context, topicId TopicId, oneInForecaster ActorId, inferer ActorId, regret types.TimestampedValue) error {
+func (k *Keeper) SetOneInForecasterNetworkRegret(
+	ctx context.Context, topicId TopicId, oneInForecaster ActorId, inferer ActorId, regret types.TimestampedValue) error {
 	key := collections.Join3(topicId, oneInForecaster, inferer)
 	return k.latestOneInForecasterNetworkRegrets.Set(ctx, key, regret)
 }
 
 // Returns the regret of a forecaster from comparing loss of forecaster relative to loss of other forecasters
 // Returns (0, true) if no regret is found
-func (k *Keeper) GetOneInForecasterNetworkRegret(ctx context.Context, topicId TopicId, oneInForecaster ActorId, inferer ActorId) (types.TimestampedValue, bool, error) {
+func (k *Keeper) GetOneInForecasterNetworkRegret(
+	ctx context.Context, topicId TopicId, oneInForecaster ActorId, inferer ActorId) (
+	regret types.TimestampedValue, noPrior bool, err error) {
 	key := collections.Join3(topicId, oneInForecaster, inferer)
-	regret, err := k.latestOneInForecasterNetworkRegrets.Get(ctx, key)
+	regret, err = k.latestOneInForecasterNetworkRegrets.Get(ctx, key)
 	if err != nil {
 		if errors.Is(err, collections.ErrNotFound) {
 			topic, err := k.GetTopic(ctx, topicId)
@@ -582,14 +592,16 @@ func (k *Keeper) GetOneInForecasterNetworkRegret(ctx context.Context, topicId To
 	return regret, false, nil
 }
 
-func (k *Keeper) SetNaiveInfererNetworkRegret(ctx context.Context, topicId TopicId, inferer ActorId, regret types.TimestampedValue) error {
+func (k *Keeper) SetNaiveInfererNetworkRegret(
+	ctx context.Context, topicId TopicId, inferer ActorId, regret types.TimestampedValue) error {
 	key := collections.Join(topicId, inferer)
 	return k.latestNaiveInfererNetworkRegrets.Set(ctx, key, regret)
 }
 
-func (k *Keeper) GetNaiveInfererNetworkRegret(ctx context.Context, topicId TopicId, inferer ActorId) (types.TimestampedValue, bool, error) {
+func (k *Keeper) GetNaiveInfererNetworkRegret(ctx context.Context, topicId TopicId, inferer ActorId) (
+	regret types.TimestampedValue, noPrior bool, err error) {
 	key := collections.Join(topicId, inferer)
-	regret, err := k.latestNaiveInfererNetworkRegrets.Get(ctx, key)
+	regret, err = k.latestNaiveInfererNetworkRegrets.Get(ctx, key)
 	if err != nil {
 		if errors.Is(err, collections.ErrNotFound) {
 			topic, err := k.GetTopic(ctx, topicId)
@@ -611,9 +623,13 @@ func (k *Keeper) SetOneOutInfererInfererNetworkRegret(ctx context.Context, topic
 	return k.latestOneOutInfererInfererNetworkRegrets.Set(ctx, key, regret)
 }
 
-func (k *Keeper) GetOneOutInfererInfererNetworkRegret(ctx context.Context, topicId TopicId, oneOutInferer ActorId, inferer ActorId) (types.TimestampedValue, bool, error) {
+// return the one out inferer regret, how much the one out inferer affects the network loss
+// if no prior is found, return the initial regret of the topic
+func (k *Keeper) GetOneOutInfererInfererNetworkRegret(
+	ctx context.Context, topicId TopicId, oneOutInferer ActorId, inferer ActorId) (
+	regret types.TimestampedValue, noPrior bool, err error) {
 	key := collections.Join3(topicId, oneOutInferer, inferer)
-	regret, err := k.latestOneOutInfererInfererNetworkRegrets.Get(ctx, key)
+	regret, err = k.latestOneOutInfererInfererNetworkRegrets.Get(ctx, key)
 	if err != nil {
 		if errors.Is(err, collections.ErrNotFound) {
 			topic, err := k.GetTopic(ctx, topicId)
@@ -635,9 +651,13 @@ func (k *Keeper) SetOneOutInfererForecasterNetworkRegret(ctx context.Context, to
 	return k.latestOneOutInfererForecasterNetworkRegrets.Set(ctx, key, regret)
 }
 
-func (k *Keeper) GetOneOutInfererForecasterNetworkRegret(ctx context.Context, topicId TopicId, oneOutInferer ActorId, forecaster ActorId) (types.TimestampedValue, bool, error) {
+// return the one out inferer forecaster regret, how much that inferer affects the forecast loss
+// if no prior is found, return the initial regret of the topic
+func (k *Keeper) GetOneOutInfererForecasterNetworkRegret(
+	ctx context.Context, topicId TopicId, oneOutInferer ActorId, forecaster ActorId) (
+	regret types.TimestampedValue, noPrior bool, err error) {
 	key := collections.Join3(topicId, oneOutInferer, forecaster)
-	regret, err := k.latestOneOutInfererForecasterNetworkRegrets.Get(ctx, key)
+	regret, err = k.latestOneOutInfererForecasterNetworkRegrets.Get(ctx, key)
 	if err != nil {
 		if errors.Is(err, collections.ErrNotFound) {
 			topic, err := k.GetTopic(ctx, topicId)
@@ -659,9 +679,13 @@ func (k *Keeper) SetOneOutForecasterInfererNetworkRegret(ctx context.Context, to
 	return k.latestOneOutForecasterInfererNetworkRegrets.Set(ctx, key, regret)
 }
 
-func (k *Keeper) GetOneOutForecasterInfererNetworkRegret(ctx context.Context, topicId TopicId, oneOutForecaster ActorId, inferer ActorId) (types.TimestampedValue, bool, error) {
+// return the one out forecaster inferer regret, how much that forecaster affects the inferer network loss
+// if no prior is found, return the initial regret of the topic
+func (k *Keeper) GetOneOutForecasterInfererNetworkRegret(
+	ctx context.Context, topicId TopicId, oneOutForecaster ActorId, inferer ActorId) (
+	regret types.TimestampedValue, noPrior bool, err error) {
 	key := collections.Join3(topicId, oneOutForecaster, inferer)
-	regret, err := k.latestOneOutForecasterInfererNetworkRegrets.Get(ctx, key)
+	regret, err = k.latestOneOutForecasterInfererNetworkRegrets.Get(ctx, key)
 	if err != nil {
 		if errors.Is(err, collections.ErrNotFound) {
 			topic, err := k.GetTopic(ctx, topicId)
@@ -683,9 +707,13 @@ func (k *Keeper) SetOneOutForecasterForecasterNetworkRegret(ctx context.Context,
 	return k.latestOneOutForecasterForecasterNetworkRegrets.Set(ctx, key, regret)
 }
 
-func (k *Keeper) GetOneOutForecasterForecasterNetworkRegret(ctx context.Context, topicId TopicId, oneOutForecaster ActorId, forecaster ActorId) (types.TimestampedValue, bool, error) {
+// return the one out forecaster forecaster regret, how much that forecaster affects the forecast loss
+// if no prior is found, return the initial regret of the topic
+func (k *Keeper) GetOneOutForecasterForecasterNetworkRegret(
+	ctx context.Context, topicId TopicId, oneOutForecaster ActorId, forecaster ActorId) (
+	regret types.TimestampedValue, noPrior bool, err error) {
 	key := collections.Join3(topicId, oneOutForecaster, forecaster)
-	regret, err := k.latestOneOutForecasterForecasterNetworkRegrets.Get(ctx, key)
+	regret, err = k.latestOneOutForecasterForecasterNetworkRegrets.Get(ctx, key)
 	if err != nil {
 		if errors.Is(err, collections.ErrNotFound) {
 			topic, err := k.GetTopic(ctx, topicId)
@@ -726,7 +754,7 @@ func (k *Keeper) GetInferencesAtBlock(ctx context.Context, topicId TopicId, bloc
 	inferences, err := k.allInferences.Get(ctx, key)
 	if err != nil {
 		if errors.Is(err, collections.ErrNotFound) {
-			return &types.Inferences{}, nil
+			return &types.Inferences{Inferences: []*types.Inference{}}, nil
 		}
 		return nil, err
 	}
@@ -761,7 +789,7 @@ func (k *Keeper) GetForecastsAtBlock(ctx context.Context, topicId TopicId, block
 	forecasts, err := k.allForecasts.Get(ctx, key)
 	if err != nil {
 		if errors.Is(err, collections.ErrNotFound) {
-			return &types.Forecasts{}, nil
+			return &types.Forecasts{Forecasts: []*types.Forecast{}}, nil
 		}
 		return nil, err
 	}
@@ -778,7 +806,7 @@ func (k *Keeper) AppendInference(ctx context.Context, topicId TopicId, nonce typ
 	key := collections.Join(topicId, block)
 	inferences, err := k.allInferences.Get(ctx, key)
 	if err != nil {
-		inferences = types.Inferences{}
+		inferences = types.Inferences{Inferences: []*types.Inference{}}
 	}
 	var newInferences types.Inferences
 	// remove inference if this inferer already submitted
@@ -835,7 +863,7 @@ func (k *Keeper) AppendForecast(ctx context.Context, topicId TopicId, nonce type
 	key := collections.Join(topicId, block)
 	forecasts, err := k.allForecasts.Get(ctx, key)
 	if err != nil {
-		forecasts = types.Forecasts{}
+		forecasts = types.Forecasts{Forecasts: []*types.Forecast{}}
 	}
 	var newForecasts types.Forecasts
 	// remove forecast if this forecaster already submitted
@@ -924,7 +952,7 @@ func (k *Keeper) AppendReputerLoss(ctx context.Context, topicId TopicId, block B
 	key := collections.Join(topicId, block)
 	reputerLossBundles, err := k.allLossBundles.Get(ctx, key)
 	if err != nil {
-		reputerLossBundles = types.ReputerValueBundles{}
+		reputerLossBundles = types.ReputerValueBundles{ReputerValueBundles: []*types.ReputerValueBundle{}}
 	}
 
 	var newReputerLossBundles types.ReputerValueBundles
@@ -969,7 +997,7 @@ func (k *Keeper) GetReputerLossBundlesAtBlock(ctx context.Context, topicId Topic
 	reputerLossBundles, err := k.allLossBundles.Get(ctx, key)
 	if err != nil {
 		if errors.Is(err, collections.ErrNotFound) {
-			return &types.ReputerValueBundles{}, nil
+			return &types.ReputerValueBundles{ReputerValueBundles: []*types.ReputerValueBundle{}}, nil
 		}
 		return nil, err
 	}
@@ -987,9 +1015,6 @@ func (k *Keeper) GetNetworkLossBundleAtBlock(ctx context.Context, topicId TopicI
 	key := collections.Join(topicId, block)
 	lossBundle, err := k.networkLossBundles.Get(ctx, key)
 	if err != nil {
-		if errors.Is(err, collections.ErrNotFound) {
-			return &types.ValueBundle{}, nil
-		}
 		return nil, err
 	}
 	return &lossBundle, nil
@@ -1643,7 +1668,13 @@ func (k *Keeper) GetStakeRemovalForReputerAndTopicId(
 	}
 	keysLen := len(keys)
 	if keysLen == 0 {
-		return types.StakeRemovalInfo{}, false, nil
+		return types.StakeRemovalInfo{
+			BlockRemovalStarted:   0,
+			TopicId:               0,
+			Reputer:               "",
+			Amount:                cosmosMath.ZeroInt(),
+			BlockRemovalCompleted: 0,
+		}, false, nil
 	}
 	if keysLen < 0 {
 		return types.StakeRemovalInfo{}, false, errorsmod.Wrapf(types.ErrInvariantFailure, "Why is golang len function returning negative values?")
@@ -1715,8 +1746,8 @@ func (k *Keeper) GetDelegateStakeRemovalsUpUntilBlock(
 	ctx context.Context,
 	blockHeight BlockHeight,
 	limit uint64,
-) ([]types.DelegateStakeRemovalInfo, bool, error) {
-	ret := make([]types.DelegateStakeRemovalInfo, 0)
+) (ret []types.DelegateStakeRemovalInfo, limitHit bool, err error) {
+	ret = make([]types.DelegateStakeRemovalInfo, 0)
 
 	// make a range that has everything less than the block height, inclusive
 	startKey := QuadrupleSinglePrefix[BlockHeight, TopicId, ActorId, ActorId](0)
@@ -1763,7 +1794,14 @@ func (k *Keeper) GetDelegateStakeRemovalForDelegatorReputerAndTopicId(
 	}
 	keysLen := len(keys)
 	if keysLen == 0 {
-		return types.DelegateStakeRemovalInfo{}, false, nil
+		return types.DelegateStakeRemovalInfo{
+			BlockRemovalStarted:   0,
+			TopicId:               0,
+			Delegator:             "",
+			Reputer:               "",
+			Amount:                cosmosMath.ZeroInt(),
+			BlockRemovalCompleted: 0,
+		}, false, nil
 	}
 	if keysLen < 0 {
 		return types.DelegateStakeRemovalInfo{}, false, errorsmod.Wrapf(types.ErrInvariantFailure, "Why is golang len function returning negative values?")
@@ -1845,8 +1883,8 @@ func (k *Keeper) GetWorkerInfo(ctx sdk.Context, workerKey ActorId) (types.Offcha
 
 // Get the previous weight during rewards calculation for a topic
 // Returns ((0,0), true) if there was no prior topic weight set, else ((x,y), false) where x,y!=0
-func (k *Keeper) GetPreviousTopicWeight(ctx context.Context, topicId TopicId) (alloraMath.Dec, bool, error) {
-	topicWeight, err := k.previousTopicWeight.Get(ctx, topicId)
+func (k *Keeper) GetPreviousTopicWeight(ctx context.Context, topicId TopicId) (topicWeight alloraMath.Dec, noPrior bool, err error) {
+	topicWeight, err = k.previousTopicWeight.Get(ctx, topicId)
 	if err != nil {
 		if errors.Is(err, collections.ErrNotFound) {
 			return alloraMath.ZeroDec(), true, nil
@@ -2107,9 +2145,6 @@ func (k *Keeper) GetLatestInfererScore(ctx context.Context, topicId TopicId, wor
 	key := collections.Join(topicId, worker)
 	score, err := k.latestInfererScoresByWorker.Get(ctx, key)
 	if err != nil {
-		if errors.Is(err, collections.ErrNotFound) {
-			return types.Score{}, nil
-		}
 		return types.Score{}, err
 	}
 	return score, nil
@@ -2132,9 +2167,6 @@ func (k *Keeper) GetLatestForecasterScore(ctx context.Context, topicId TopicId, 
 	key := collections.Join(topicId, worker)
 	score, err := k.latestForecasterScoresByWorker.Get(ctx, key)
 	if err != nil {
-		if errors.Is(err, collections.ErrNotFound) {
-			return types.Score{}, nil
-		}
 		return types.Score{}, err
 	}
 	return score, nil
@@ -2157,9 +2189,6 @@ func (k *Keeper) GetLatestReputerScore(ctx context.Context, topicId TopicId, rep
 	key := collections.Join(topicId, reputer)
 	score, err := k.latestReputerScoresByReputer.Get(ctx, key)
 	if err != nil {
-		if errors.Is(err, collections.ErrNotFound) {
-			return types.Score{}, nil
-		}
 		return types.Score{}, err
 	}
 	return score, nil
@@ -2234,9 +2263,6 @@ func (k *Keeper) GetWorkerInferenceScoresAtBlock(ctx context.Context, topicId To
 	key := collections.Join(topicId, block)
 	scores, err := k.infererScoresByBlock.Get(ctx, key)
 	if err != nil {
-		if errors.Is(err, collections.ErrNotFound) {
-			return types.Scores{}, nil
-		}
 		return types.Scores{}, err
 	}
 	return scores, nil
@@ -2311,9 +2337,6 @@ func (k *Keeper) GetWorkerForecastScoresAtBlock(ctx context.Context, topicId Top
 	key := collections.Join(topicId, block)
 	scores, err := k.forecasterScoresByBlock.Get(ctx, key)
 	if err != nil {
-		if errors.Is(err, collections.ErrNotFound) {
-			return types.Scores{}, nil
-		}
 		return types.Scores{}, err
 	}
 	return scores, nil
@@ -2346,9 +2369,6 @@ func (k *Keeper) GetReputersScoresAtBlock(ctx context.Context, topicId TopicId, 
 	key := collections.Join(topicId, block)
 	scores, err := k.reputerScoresByBlock.Get(ctx, key)
 	if err != nil {
-		if errors.Is(err, collections.ErrNotFound) {
-			return types.Scores{}, nil
-		}
 		return types.Scores{}, err
 	}
 	return scores, nil
@@ -2376,16 +2396,18 @@ func (k *Keeper) GetListeningCoefficient(ctx context.Context, topicId TopicId, r
 
 // Gets the previous W_{i-1,m}
 // Returns previous reward fraction, and true if it has yet to be set for the first time (else false)
-func (k *Keeper) GetPreviousReputerRewardFraction(ctx context.Context, topicId TopicId, reputer ActorId) (alloraMath.Dec, bool, error) {
+func (k *Keeper) GetPreviousReputerRewardFraction(
+	ctx context.Context, topicId TopicId, reputer ActorId) (
+	previousReputerRewardFraction alloraMath.Dec, noPrior bool, err error) {
 	key := collections.Join(topicId, reputer)
-	reward, err := k.previousReputerRewardFraction.Get(ctx, key)
+	previousReputerRewardFraction, err = k.previousReputerRewardFraction.Get(ctx, key)
 	if err != nil {
 		if errors.Is(err, collections.ErrNotFound) {
 			return alloraMath.ZeroDec(), true, nil
 		}
 		return alloraMath.Dec{}, false, err
 	}
-	return reward, false, nil
+	return previousReputerRewardFraction, false, nil
 }
 
 // Sets the previous W_{i-1,m}
@@ -2396,16 +2418,17 @@ func (k *Keeper) SetPreviousReputerRewardFraction(ctx context.Context, topicId T
 
 // Gets the previous U_{i-1,m}
 // Returns previous reward fraction, and true if it has yet to be set for the first time (else false)
-func (k *Keeper) GetPreviousInferenceRewardFraction(ctx context.Context, topicId TopicId, worker ActorId) (alloraMath.Dec, bool, error) {
+func (k *Keeper) GetPreviousInferenceRewardFraction(ctx context.Context, topicId TopicId, worker ActorId) (
+	previousInferenceRewardFraction alloraMath.Dec, noPrior bool, err error) {
 	key := collections.Join(topicId, worker)
-	reward, err := k.previousInferenceRewardFraction.Get(ctx, key)
+	previousInferenceRewardFraction, err = k.previousInferenceRewardFraction.Get(ctx, key)
 	if err != nil {
 		if errors.Is(err, collections.ErrNotFound) {
 			return alloraMath.ZeroDec(), true, nil
 		}
 		return alloraMath.Dec{}, false, err
 	}
-	return reward, false, nil
+	return previousInferenceRewardFraction, false, nil
 }
 
 // Sets the previous U_{i-1,m}
@@ -2416,16 +2439,17 @@ func (k *Keeper) SetPreviousInferenceRewardFraction(ctx context.Context, topicId
 
 // Gets the previous V_{i-1,m}
 // Returns previous reward fraction, and true if it has yet to be set for the first time (else false)
-func (k *Keeper) GetPreviousForecastRewardFraction(ctx context.Context, topicId TopicId, worker ActorId) (alloraMath.Dec, bool, error) {
+func (k *Keeper) GetPreviousForecastRewardFraction(ctx context.Context, topicId TopicId, worker ActorId) (
+	previousForecastRewardFraction alloraMath.Dec, noPrior bool, err error) {
 	key := collections.Join(topicId, worker)
-	reward, err := k.previousForecastRewardFraction.Get(ctx, key)
+	previousForecastRewardFraction, err = k.previousForecastRewardFraction.Get(ctx, key)
 	if err != nil {
 		if errors.Is(err, collections.ErrNotFound) {
 			return alloraMath.ZeroDec(), true, nil
 		}
 		return alloraMath.Dec{}, false, err
 	}
-	return reward, false, nil
+	return previousForecastRewardFraction, false, nil
 }
 
 // Sets the previous V_{i-1,m}

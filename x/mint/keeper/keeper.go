@@ -51,6 +51,7 @@ func NewKeeper(
 
 	sb := collections.NewSchemaBuilder(storeService)
 	k := Keeper{
+		Schema:                                   collections.Schema{},
 		cdc:                                      cdc,
 		storeService:                             storeService,
 		stakingKeeper:                            sk,

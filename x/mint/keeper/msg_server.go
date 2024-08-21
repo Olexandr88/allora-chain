@@ -7,7 +7,7 @@ import (
 	"github.com/allora-network/allora-chain/x/mint/types"
 )
 
-var _ types.MsgServer = msgServer{}
+var _ types.MsgServer = msgServer{} //nolint: exhaustruct
 
 // msgServer is a wrapper of Keeper.
 type msgServer struct {
