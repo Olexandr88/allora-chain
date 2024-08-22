@@ -58,9 +58,8 @@ func GetForecastImpliedInferences(palette SynthPalette) (
 }
 
 // Calculates the network naive inference I^-_i
-func GetNaiveInference(inPalette SynthPalette) (naiveInference alloraMath.Dec, err error) {
-	inPalette.Logger.Debug(fmt.Sprintf("Calculating naive inference for topic %v", inPalette.TopicId))
-	palette := inPalette.Clone()
+func GetNaiveInference(palette SynthPalette) (naiveInference alloraMath.Dec, err error) {
+	palette.Logger.Debug(fmt.Sprintf("Calculating naive inference for topic %v", palette.TopicId))
 
 	// Update the forecasters info to exclude all forecasters
 	err = palette.UpdateForecastersInfo(make([]string, 0))
@@ -93,11 +92,10 @@ func GetNaiveInference(inPalette SynthPalette) (naiveInference alloraMath.Dec, e
 }
 
 // Calculate the one-out inference given a withheld inferer
-func calcOneOutInfererInference(inPalette SynthPalette, withheldInferer Worker) (
+func calcOneOutInfererInference(palette SynthPalette, withheldInferer Worker) (
 	oneOutNetworkInferenceWithoutInferer alloraMath.Dec, err error) {
-	inPalette.Logger.Debug(fmt.Sprintf(
-		"Calculating one-out inference for topic %v withheld inferer %s", inPalette.TopicId, withheldInferer))
-	palette := inPalette.Clone()
+	palette.Logger.Debug(fmt.Sprintf(
+		"Calculating one-out inference for topic %v withheld inferer %s", palette.TopicId, withheldInferer))
 	totalInferers := palette.Inferers
 
 	// Remove the inferer from the palette's inferers
@@ -153,7 +151,7 @@ func calcOneOutInfererInference(inPalette SynthPalette, withheldInferer Worker) 
 		return alloraMath.Dec{}, errorsmod.Wrapf(err, "Error calculating one-out inference for inferer")
 	}
 
-	palette.Logger.Debug(fmt.Sprintf("One-out inference calculated for topic %v withheld inferer %s is %v", inPalette.TopicId, withheldInferer, oneOutNetworkInferenceWithoutInferer))
+	palette.Logger.Debug(fmt.Sprintf("One-out inference calculated for topic %v withheld inferer %s is %v", palette.TopicId, withheldInferer, oneOutNetworkInferenceWithoutInferer))
 	return oneOutNetworkInferenceWithoutInferer, nil
 }
 
@@ -167,7 +165,8 @@ func GetOneOutInfererInferences(palette SynthPalette) (
 	// Calculate the one-out inferences per inferer
 	oneOutInferences := make([]*emissions.WithheldWorkerAttributedValue, 0)
 	for _, worker := range palette.Inferers {
-		oneOutInference, err := calcOneOutInfererInference(palette, worker)
+		calcPalette := palette.Clone()
+		oneOutInference, err := calcOneOutInfererInference(calcPalette, worker)
 		if err != nil {
 			return []*emissions.WithheldWorkerAttributedValue{}, errorsmod.Wrapf(err, "Error calculating one-out inferer inferences")
 		}
@@ -183,10 +182,9 @@ func GetOneOutInfererInferences(palette SynthPalette) (
 }
 
 // Calculate the one-out inference given a withheld forecaster
-func calcOneOutForecasterInference(inPalette SynthPalette, withheldForecaster Worker) (
+func calcOneOutForecasterInference(palette SynthPalette, withheldForecaster Worker) (
 	oneOutNetworkInferenceWithoutInferer alloraMath.Dec, err error) {
-	inPalette.Logger.Debug(fmt.Sprintf("Calculating one-out inference for topic %v withheld forecaster %s", inPalette.TopicId, withheldForecaster))
-	palette := inPalette.Clone()
+	palette.Logger.Debug(fmt.Sprintf("Calculating one-out inference for topic %v withheld forecaster %s", palette.TopicId, withheldForecaster))
 	totalForecasters := palette.Forecasters
 
 	// Remove the withheldForecaster from the palette's forecasters
@@ -246,7 +244,8 @@ func GetOneOutForecasterInferences(palette SynthPalette) (
 	// If there is only one forecaster, there's no need to calculate one-out inferences
 	if len(palette.Forecasters) > 1 {
 		for _, worker := range palette.Forecasters {
-			oneOutInference, err := calcOneOutForecasterInference(palette, worker)
+			calcPalette := palette.Clone()
+			oneOutInference, err := calcOneOutForecasterInference(calcPalette, worker)
 			if err != nil {
 				return []*emissions.WithheldWorkerAttributedValue{}, errorsmod.Wrapf(err, "Error calculating one-out forecaster inferences")
 			}
@@ -260,10 +259,9 @@ func GetOneOutForecasterInferences(palette SynthPalette) (
 	return oneOutForecasterInferences, nil
 }
 
-func calcOneInValue(inPalette SynthPalette, oneInForecaster Worker) (
+func calcOneInValue(palette SynthPalette, oneInForecaster Worker) (
 	oneInInference alloraMath.Dec, err error) {
-	inPalette.Logger.Debug(fmt.Sprintf("Calculating one-in inference for forecaster: %s", oneInForecaster))
-	palette := inPalette.Clone()
+	palette.Logger.Debug(fmt.Sprintf("Calculating one-in inference for forecaster: %s", oneInForecaster))
 
 	// In each loop, remove all forecast-implied inferences except one
 	forecastImpliedInferencesWithForecaster := make(map[Worker]*emissions.Inference)
@@ -322,7 +320,8 @@ func GetOneInForecasterInferences(palette SynthPalette) (oneInInferences []*emis
 	// If there is only one forecaster, thre's no need to calculate one-in inferences
 	if len(palette.Forecasters) > 1 {
 		for _, oneInForecaster := range palette.Forecasters {
-			oneInValue, err := calcOneInValue(palette, oneInForecaster)
+			calcPalette := palette.Clone()
+			oneInValue, err := calcOneInValue(calcPalette, oneInForecaster)
 			if err != nil {
 				return []*emissions.WorkerAttributedValue{}, errorsmod.Wrapf(err, "Error calculating one-in inferences")
 			}
@@ -347,7 +346,8 @@ func CalcNetworkInferences(
 	}
 	inferences := GetInferences(palette)
 	forecastImpliedInferences := GetForecastImpliedInferences(palette)
-	naiveInference, err := GetNaiveInference(palette)
+	naiveInferencePalette := palette.Clone()
+	naiveInference, err := GetNaiveInference(naiveInferencePalette)
 	if err != nil {
 		return &emissions.ValueBundle{}, RegretInformedWeights{}, errorsmod.Wrap(err, "Error calculating naive inference")
 	}
