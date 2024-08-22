@@ -610,7 +610,7 @@ func (s *InferenceSynthesisTestSuite) TestBuildNetworkInferencesIncompleteData()
 	)
 	s.Require().NoError(err)
 	valueBundle, _, err := inferencesynthesis.CalcNetworkInferences(s.ctx.Logger(), synthPalette)
-	s.Require().Error(err)
+	s.Require().NoError(err)
 
 	s.Require().NotNil(valueBundle)
 	s.Require().NotNil(valueBundle.CombinedValue)

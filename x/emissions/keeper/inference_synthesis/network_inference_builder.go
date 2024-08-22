@@ -10,10 +10,9 @@ import (
 )
 
 // Calculates the network combined inference I_i, Equation 9
-func GetCombinedInference(logger log.Logger, inPalette SynthPalette) (
+func GetCombinedInference(logger log.Logger, palette SynthPalette) (
 	weights RegretInformedWeights, combinedInference InferenceValue, err error) {
-	logger.Debug(fmt.Sprintf("Calculating combined inference for topic %v", inPalette.TopicId))
-	palette := inPalette.Clone()
+	logger.Debug(fmt.Sprintf("Calculating combined inference for topic %v", palette.TopicId))
 
 	weights, err = palette.CalcWeightsGivenWorkers()
 	if err != nil {
@@ -25,7 +24,7 @@ func GetCombinedInference(logger log.Logger, inPalette SynthPalette) (
 		return RegretInformedWeights{}, InferenceValue{}, errorsmod.Wrap(err, "Error calculating combined inference")
 	}
 
-	logger.Debug(fmt.Sprintf("Combined inference calculated for topic %v is %v", inPalette.TopicId, combinedInference))
+	logger.Debug(fmt.Sprintf("Combined inference calculated for topic %v is %v", palette.TopicId, combinedInference))
 	return weights, combinedInference, nil
 }
 
@@ -59,9 +58,8 @@ func GetForecastImpliedInferences(logger log.Logger, palette SynthPalette) (
 }
 
 // Calculates the network naive inference I^-_i
-func GetNaiveInference(logger log.Logger, inPalette SynthPalette) (naiveInference alloraMath.Dec, err error) {
-	logger.Debug(fmt.Sprintf("Calculating naive inference for topic %v", inPalette.TopicId))
-	palette := inPalette.Clone()
+func GetNaiveInference(logger log.Logger, palette SynthPalette) (naiveInference alloraMath.Dec, err error) {
+	logger.Debug(fmt.Sprintf("Calculating naive inference for topic %v", palette.TopicId))
 
 	// Update the forecasters info to exclude all forecasters
 	err = palette.UpdateForecastersInfo(make([]string, 0))
@@ -89,7 +87,7 @@ func GetNaiveInference(logger log.Logger, inPalette SynthPalette) (naiveInferenc
 		return alloraMath.Dec{}, errorsmod.Wrap(err, "Error calculating naive inference")
 	}
 
-	logger.Debug(fmt.Sprintf("Naive inference calculated for topic %v is %v", inPalette.TopicId, naiveInference))
+	logger.Debug(fmt.Sprintf("Naive inference calculated for topic %v is %v", palette.TopicId, naiveInference))
 	return naiveInference, nil
 }
 
@@ -186,10 +184,9 @@ func GetOneOutInfererInferences(logger log.Logger, palette SynthPalette) (
 
 // Calculate the one-out inference given a withheld forecaster
 func calcOneOutForecasterInference(
-	logger log.Logger, inPalette SynthPalette, withheldForecaster Worker) (
+	logger log.Logger, palette SynthPalette, withheldForecaster Worker) (
 	oneOutNetworkInferenceWithoutInferer alloraMath.Dec, err error) {
-	logger.Debug(fmt.Sprintf("Calculating one-out inference for topic %v withheld forecaster %s", inPalette.TopicId, withheldForecaster))
-	palette := inPalette.Clone()
+	logger.Debug(fmt.Sprintf("Calculating one-out inference for topic %v withheld forecaster %s", palette.TopicId, withheldForecaster))
 	totalForecasters := palette.Forecasters
 
 	// Remove the withheldForecaster from the palette's forecasters
@@ -234,7 +231,7 @@ func calcOneOutForecasterInference(
 		return alloraMath.Dec{}, errorsmod.Wrapf(err, "Error calculating one-out inference for inferer")
 	}
 
-	logger.Debug(fmt.Sprintf("One-out inference calculated for topic %v withheld forecaster %s is %v", inPalette.TopicId, withheldForecaster, oneOutNetworkInferenceWithoutInferer))
+	logger.Debug(fmt.Sprintf("One-out inference calculated for topic %v withheld forecaster %s is %v", palette.TopicId, withheldForecaster, oneOutNetworkInferenceWithoutInferer))
 	return oneOutNetworkInferenceWithoutInferer, nil
 }
 
