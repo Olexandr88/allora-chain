@@ -415,7 +415,7 @@ func (s *InferenceSynthesisTestSuite) getEpochValueBundleByEpoch(epochNumber int
 
 func (s *InferenceSynthesisTestSuite) testCorrectCombinedInitialValueForEpoch(epoch int) {
 	synthPalette, epochGet := s.getEpochValueBundleByEpoch(epoch)
-	_, combinedValue, err := inferencesynthesis.GetCombinedInference(s.ctx.Logger(), synthPalette)
+	_, combinedValue, err := inferencesynthesis.GetCombinedInference(synthPalette)
 	s.Require().NoError(err)
 	alloratestutil.InEpsilon5(s.T(), combinedValue, epochGet[epoch]("network_inference").String())
 }
@@ -434,7 +434,7 @@ func (s *InferenceSynthesisTestSuite) TestCorrectCombinedValueEpoch4() {
 
 func (s *InferenceSynthesisTestSuite) testCorrectNaiveValueForEpoch(epoch int) {
 	synthPalette, epochGet := s.getEpochValueBundleByEpoch(epoch)
-	naiveValue, err := inferencesynthesis.GetNaiveInference(s.ctx.Logger(), synthPalette)
+	naiveValue, err := inferencesynthesis.GetNaiveInference(synthPalette)
 	s.Require().NoError(err)
 	alloratestutil.InEpsilon5(s.T(), naiveValue, epochGet[epoch]("network_naive_inference").String())
 }
@@ -458,7 +458,7 @@ func (s *InferenceSynthesisTestSuite) testCorrectOneOutInfererValuesForEpoch(epo
 		"worker4": epochGet[epoch]("network_inference_oneout_4"),
 	}
 
-	oneOutInfererValues, err := inferencesynthesis.GetOneOutInfererInferences(s.ctx.Logger(), synthPalette)
+	oneOutInfererValues, err := inferencesynthesis.GetOneOutInfererInferences(synthPalette)
 	s.Require().NoError(err)
 
 	for worker, expectedValue := range expectedValues {
@@ -483,7 +483,7 @@ func (s *InferenceSynthesisTestSuite) TestCorrectOneOutInfererValuesEpoch3() {
 
 func (s *InferenceSynthesisTestSuite) testCorrectOneOutForecasterValuesForEpoch(epoch int) {
 	synthPalette, epochGet := s.getEpochValueBundleByEpoch(epoch)
-	oneOutForecasterValues, err := inferencesynthesis.GetOneOutForecasterInferences(s.ctx.Logger(), synthPalette)
+	oneOutForecasterValues, err := inferencesynthesis.GetOneOutForecasterInferences(synthPalette)
 	s.Require().NoError(err)
 
 	expectedValues := map[string]alloraMath.Dec{
@@ -518,7 +518,7 @@ func (s *InferenceSynthesisTestSuite) TestCorrectOneOutForecasterValuesEpoch4() 
 
 func (s *InferenceSynthesisTestSuite) testCorrectOneInForecasterValuesForEpoch(epoch int) {
 	synthPalette, epochGet := s.getEpochValueBundleByEpoch(epoch)
-	oneInForecasterValues, err := inferencesynthesis.GetOneInForecasterInferences(s.ctx.Logger(), synthPalette)
+	oneInForecasterValues, err := inferencesynthesis.GetOneInForecasterInferences(synthPalette)
 	s.Require().NoError(err)
 
 	expectedValues := map[string]alloraMath.Dec{
@@ -609,7 +609,7 @@ func (s *InferenceSynthesisTestSuite) TestBuildNetworkInferencesIncompleteData()
 		},
 	)
 	s.Require().NoError(err)
-	valueBundle, _, err := inferencesynthesis.CalcNetworkInferences(s.ctx.Logger(), synthPalette)
+	valueBundle, _, err := inferencesynthesis.CalcNetworkInferences(synthPalette)
 	s.Require().NoError(err)
 
 	s.Require().NotNil(valueBundle)
@@ -697,7 +697,7 @@ func (s *InferenceSynthesisTestSuite) TestCalcNetworkInferencesTwoWorkerTwoForec
 		},
 	)
 	s.Require().NoError(err)
-	valueBundle, _, err := inferencesynthesis.CalcNetworkInferences(s.ctx.Logger(), synthPalette)
+	valueBundle, _, err := inferencesynthesis.CalcNetworkInferences(synthPalette)
 	s.Require().NoError(err)
 
 	// Check the results
@@ -815,7 +815,7 @@ func (s *InferenceSynthesisTestSuite) TestCalcNetworkInferencesThreeWorkerThreeF
 		},
 	)
 	s.Require().NoError(err)
-	valueBundle, _, err := inferencesynthesis.CalcNetworkInferences(s.ctx.Logger(), synthPalette)
+	valueBundle, _, err := inferencesynthesis.CalcNetworkInferences(synthPalette)
 	s.Require().NoError(err)
 
 	// Check the results
@@ -897,7 +897,7 @@ func (s *InferenceSynthesisTestSuite) TestCalc0neInInferencesTwoForecastersOldTw
 		},
 	)
 	s.Require().NoError(err)
-	valueBundle, _, err := inferencesynthesis.CalcNetworkInferences(s.ctx.Logger(), synthPalette)
+	valueBundle, _, err := inferencesynthesis.CalcNetworkInferences(synthPalette)
 	s.Require().NoError(err)
 
 	// Check the results
