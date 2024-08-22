@@ -10,9 +10,10 @@ import (
 )
 
 // Calculates the network combined inference I_i, Equation 9
-func GetCombinedInference(logger log.Logger, palette SynthPalette) (
+func GetCombinedInference(logger log.Logger, inPalette SynthPalette) (
 	weights RegretInformedWeights, combinedInference InferenceValue, err error) {
-	logger.Debug(fmt.Sprintf("Calculating combined inference for topic %v", palette.TopicId))
+	logger.Debug(fmt.Sprintf("Calculating combined inference for topic %v", inPalette.TopicId))
+	palette := inPalette.Clone()
 
 	weights, err = palette.CalcWeightsGivenWorkers()
 	if err != nil {
@@ -58,8 +59,9 @@ func GetForecastImpliedInferences(logger log.Logger, palette SynthPalette) (
 }
 
 // Calculates the network naive inference I^-_i
-func GetNaiveInference(logger log.Logger, palette SynthPalette) (naiveInference alloraMath.Dec, err error) {
-	logger.Debug(fmt.Sprintf("Calculating naive inference for topic %v", palette.TopicId))
+func GetNaiveInference(logger log.Logger, inPalette SynthPalette) (naiveInference alloraMath.Dec, err error) {
+	logger.Debug(fmt.Sprintf("Calculating naive inference for topic %v", inPalette.TopicId))
+	palette := inPalette.Clone()
 
 	// Update the forecasters info to exclude all forecasters
 	err = palette.UpdateForecastersInfo(make([]string, 0))
@@ -184,9 +186,10 @@ func GetOneOutInfererInferences(logger log.Logger, palette SynthPalette) (
 
 // Calculate the one-out inference given a withheld forecaster
 func calcOneOutForecasterInference(
-	logger log.Logger, palette SynthPalette, withheldForecaster Worker) (
+	logger log.Logger, inPalette SynthPalette, withheldForecaster Worker) (
 	oneOutNetworkInferenceWithoutInferer alloraMath.Dec, err error) {
-	logger.Debug(fmt.Sprintf("Calculating one-out inference for topic %v withheld forecaster %s", palette.TopicId, withheldForecaster))
+	logger.Debug(fmt.Sprintf("Calculating one-out inference for topic %v withheld forecaster %s", inPalette.TopicId, withheldForecaster))
+	palette := inPalette.Clone()
 	totalForecasters := palette.Forecasters
 
 	// Remove the withheldForecaster from the palette's forecasters
